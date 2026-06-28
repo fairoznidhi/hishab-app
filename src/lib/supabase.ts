@@ -11,6 +11,11 @@ export interface Expense {
   amount: number;
 }
 
+export interface Income {
+  name: string;
+  amount: number;
+}
+
 export interface MonthData {
   id?: number;
   key: string;       // e.g. "2026_জুন"
@@ -19,6 +24,7 @@ export interface MonthData {
   opening: number;
   rental: number;
   other_income: number;
+  incomes: Income[];
   expenses: Expense[];
 }
 
@@ -28,13 +34,20 @@ export const BANGLA_MONTHS = [
   "জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর",
 ];
 
+export const ENGLISH_MONTHS = [
+  "january","february","march","april","may","june",
+  "july","august","september","october","november","december",
+];
+
 export const DEFAULT_SUGGESTIONS = [
   "সামিয়া আপু","রিপন","মনির","বোয়া","গাড়ি ভাড়া","গাড়ি তেল",
   "ডলার","বিদ্যুৎ ও গাস","বিকাশ","পাউডার","মরুগি সদগা","কোরআন খতম + সদগা",
 ];
 
 export function makeKey(month: string, year: string) {
-  return `${year}_${month}`;
+  const idx = BANGLA_MONTHS.indexOf(month);
+  const engMonth = idx >= 0 ? ENGLISH_MONTHS[idx] : month.toLowerCase();
+  return `${year}_${engMonth}`;
 }
 
 export function fmtBDT(n: number) {
@@ -75,6 +88,7 @@ export async function upsertMonth(m: MonthData): Promise<void> {
     opening: m.opening,
     rental: m.rental,
     other_income: m.other_income,
+    incomes: m.incomes,
     expenses: m.expenses,
   };
 

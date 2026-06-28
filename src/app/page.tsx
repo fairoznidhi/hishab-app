@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { BookOpen, Wallet, ShoppingCart, Plus, Pencil, FileText, Loader2 } from "lucide-react";
+import { BookOpen, ShoppingCart, Plus, FileText, Loader2, TrendingUp } from "lucide-react";
 import {
-  MonthData, Expense,
+  MonthData, Expense, Income,
   getAllMonths, getMonth, upsertMonth,
   getSuggestions, addSuggestions,
-  makeKey, fmtBDT, parseAmount, BANGLA_MONTHS,
+  makeKey, fmtBDT, parseAmount, BANGLA_MONTHS, ENGLISH_MONTHS,
 } from "@/lib/supabase";
 import ExpenseRow from "@/components/ExpenseRow";
 import ReportView from "@/components/ReportView";
@@ -25,16 +25,25 @@ export default function Home() {
 
   const [toast, setToast] = useState("");
   const [dbReady, setDbReady] = useState<boolean | null>(null);
-  const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [editOpening, setEditOpening] = useState("");
-  const [editRental, setEditRental] = useState("");
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [newExpenseName, setNewExpenseName] = useState("");
   const [newExpenseAmount, setNewExpenseAmount] = useState("");
   const [addSugFiltered, setAddSugFiltered] = useState<string[]>([]);
   const [showAddSug, setShowAddSug] = useState(false);
+  const [showAddIncome, setShowAddIncome] = useState(false);
+  const [newIncomeName, setNewIncomeName] = useState("");
+  const [newIncomeAmount, setNewIncomeAmount] = useState("");
+  const [incomeSuggestions] = useState(["ভাড়া"]);
+  const [incomeSugFiltered, setIncomeSugFiltered] = useState<string[]>([]);
+  const [showIncomeSug, setShowIncomeSug] = useState(false);
 
   useEffect(() => { init(); }, []);
+
+  const anyModalOpen = showAddExpense || showAddIncome;
+  useEffect(() => {
+    document.body.style.overflow = anyModalOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [anyModalOpen]);
 
   async function init() {
     try {
@@ -47,12 +56,16 @@ export default function Home() {
     }
   }
 
-  function computeOpening(key: string, months: MonthData[]): number {
-    const sorted = [...months].sort((a, b) => a.key.localeCompare(b.key));
-    const idx = sorted.findIndex((m) => m.key === key);
-    if (idx <= 0) return 0;
-    const prev = sorted[idx - 1];
-    const totalIn = (prev.opening || 0) + (prev.rental || 0) + (prev.other_income || 0);
+  function computeOpening(key: string, months: MonthData[]): number | null {
+    const [year, engMonth] = key.split("_");
+    const monthIdx = ENGLISH_MONTHS.indexOf(engMonth);
+    if (monthIdx < 0) return null;
+    const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
+    const prevYear = monthIdx === 0 ? String(Number(year) - 1) : year;
+    const prevKey = `${prevYear}_${ENGLISH_MONTHS[prevMonthIdx]}`;
+    const prev = months.find((m) => m.key === prevKey);
+    if (!prev) return null;
+    const totalIn = (prev.opening || 0) + (prev.incomes || []).reduce((s, e) => s + (e.amount || 0), 0);
     const totalEx = (prev.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
     return totalIn - totalEx;
   }
@@ -65,9 +78,14 @@ export default function Home() {
     setData(null);
     setLoading(true);
     try {
-      const m = await getMonth(key);
+      const [m, months] = await Promise.all([getMonth(key), getAllMonths()]);
+      setAllMonths(months);
       if (m) {
-        if (!m.opening) m.opening = computeOpening(key, allMonths);
+        const computed = computeOpening(key, months);
+        if (computed !== null && computed !== m.opening) {
+          m.opening = computed;
+          upsertMonth(m).catch(() => {});
+        }
         setData(m);
       }
     } catch { showToast("লোড হয়নি, আবার চেষ্টা করুন"); }
@@ -82,9 +100,14 @@ export default function Home() {
     setData(null);
     setLoading(true);
     try {
-      const m = await getMonth(key);
+      const [m, months] = await Promise.all([getMonth(key), getAllMonths()]);
+      setAllMonths(months);
       if (m) {
-        if (!m.opening) m.opening = computeOpening(key, allMonths);
+        const computed = computeOpening(key, months);
+        if (computed !== null && computed !== m.opening) {
+          m.opening = computed;
+          upsertMonth(m).catch(() => {});
+        }
         setData(m);
       }
     } catch { showToast("লোড হয়নি, আবার চেষ্টা করুন"); }
@@ -95,10 +118,11 @@ export default function Home() {
     const key = makeKey(activeMonth, activeYear);
     const newMonth: MonthData = {
       key, month: activeMonth, year: activeYear,
-      opening: 0, rental: 0, other_income: 0, expenses: [],
+      opening: 0, rental: 0, other_income: 0, incomes: [], expenses: [],
     };
     const merged = [...allMonths, newMonth].sort((a, b) => a.key.localeCompare(b.key));
-    newMonth.opening = computeOpening(key, merged);
+    const computed = computeOpening(key, merged);
+    if (computed !== null) newMonth.opening = computed;
     try {
       await upsertMonth(newMonth);
       const updated = await getAllMonths();
@@ -131,14 +155,19 @@ export default function Home() {
 
   async function addExpense() {
     if (!data || !activeKey || !newExpenseName.trim()) return;
-    const updated = { ...data, expenses: [...data.expenses, { name: newExpenseName.trim(), amount: parseAmount(newExpenseAmount) }] };
+    const name = newExpenseName.trim();
+    if (data.expenses.some((e) => e.name.trim() === name)) {
+      showToast("এই নামে খরচ আগে থেকেই আছে");
+      return;
+    }
+    const updated = { ...data, expenses: [...data.expenses, { name, amount: parseAmount(newExpenseAmount) }] };
     setData(updated);
     setShowAddExpense(false);
     setNewExpenseName("");
     setNewExpenseAmount("");
     try {
       await upsertMonth(updated);
-      await addSuggestions([newExpenseName.trim()]);
+      await addSuggestions([name]);
       const [months, sugs] = await Promise.all([getAllMonths(), getSuggestions()]);
       setAllMonths(months);
       setSuggestions([...sugs].sort((a, b) => a.localeCompare(b, "bn")));
@@ -156,14 +185,54 @@ export default function Home() {
     } catch { showToast("মুছা হয়নি"); }
   }
 
+  async function addIncome() {
+    if (!data || !activeKey || !newIncomeName.trim()) return;
+    const name = newIncomeName.trim();
+    if ((data.incomes || []).some((e) => e.name.trim() === name)) {
+      showToast("এই নামে আয় আগে থেকেই আছে");
+      return;
+    }
+    const updated = { ...data, incomes: [...(data.incomes || []), { name, amount: parseAmount(newIncomeAmount) }] };
+    setData(updated);
+    setShowAddIncome(false);
+    setNewIncomeName("");
+    setNewIncomeAmount("");
+    try {
+      await upsertMonth(updated);
+      showToast("আয় যোগ হয়েছে");
+    } catch { showToast("সংরক্ষণ হয়নি"); }
+  }
+
+  async function saveIncomeEdit(i: number, name: string, amount: number) {
+    if (!data) return;
+    const incomes = [...(data.incomes || [])];
+    incomes[i] = { name, amount };
+    const updated = { ...data, incomes };
+    setData(updated);
+    try {
+      await upsertMonth(updated);
+      showToast("আয় আপডেট হয়েছে");
+    } catch { showToast("সংরক্ষণ হয়নি"); }
+  }
+
+  async function removeIncome(i: number) {
+    if (!data || !activeKey) return;
+    const updated = { ...data, incomes: (data.incomes || []).filter((_, idx) => idx !== i) };
+    setData(updated);
+    try {
+      await upsertMonth(updated);
+      showToast("আয় মুছে গেছে");
+    } catch { showToast("মুছা হয়নি"); }
+  }
+
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
   }
 
-  const totalIncome = data ? (data.opening || 0) + (data.rental || 0) + (data.other_income || 0) : 0;
+  const totalIncome = data ? (data.incomes || []).reduce((s, e) => s + (e.amount || 0), 0) : 0;
   const totalExpense = data ? data.expenses.reduce((s, e) => s + (e.amount || 0), 0) : 0;
-  const balance = totalIncome - totalExpense;
+  const balance = (data ? (data.opening || 0) : 0) + totalIncome - totalExpense;
 
   const existsInDb = (month: string) => allMonths.some((m) => m.month === month && m.year === activeYear);
 
@@ -254,23 +323,26 @@ export default function Home() {
             <ReportView data={data} onBack={() => setShowReport(false)} />
           ) : (
             <>
+              {/* Previous balance */}
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
+                <span className="text-base text-blue-700 font-medium">গত মাসের ব্যালেন্স</span>
+                <span className="text-lg font-bold text-blue-700">৳{(data.opening || 0).toLocaleString("bn-BD")}</span>
+              </div>
+
               {/* Income */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-xl font-bold flex items-center gap-2"><Wallet size={20} className="text-blue-600" />আয়</h2>
-                  <button onClick={() => { setEditOpening(String(data.opening || "")); setEditRental(String(data.rental || "")); setShowIncomeModal(true); }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                    <Pencil size={14} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 py-2 border-b border-gray-100">
-                  <span className="flex-1 text-base text-gray-500">ওপেনিং বালেন্স</span>
-                  <span className="text-base font-semibold text-blue-700">৳{(data.opening || 0).toLocaleString("bn-BD")}</span>
-                </div>
-                <div className="flex items-center gap-2 py-2">
-                  <span className="flex-1 text-base text-gray-500">ভাড়া</span>
-                  <span className="text-base font-semibold text-blue-700">৳{(data.rental || 0).toLocaleString("bn-BD")}</span>
-                </div>
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrendingUp size={20} className="text-green-600" />আয়</h2>
+                {(data.incomes || []).map((e, i) => (
+                  <ExpenseRow key={i} index={i} expense={e} suggestions={[]}
+                    onChange={() => {}}
+                    onSave={saveIncomeEdit}
+                    onRemove={removeIncome} />
+                ))}
+                <button
+                  onClick={() => setShowAddIncome(true)}
+                  className="w-full text-xl py-3 mt-1 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:bg-green-50 hover:text-green-600 hover:border-green-200">
+                  <Plus size={18} className="inline mr-1" />নতুন আয় যোগ করুন
+                </button>
               </div>
 
               {/* Expenses */}
@@ -291,10 +363,9 @@ export default function Home() {
 
               {/* Summary */}
               <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
-                <SRow label="ওপেনিং বালেন্স" value={fmtBDT(data.opening || 0)} />
-                {data.rental > 0 && <SRow label="ভাড়া" value={fmtBDT(data.rental)} />}
-
-                <SRow label="মোট আয়" value={fmtBDT(totalIncome)} bold />
+                <SRow label="গত মাসের ব্যালেন্স" value={fmtBDT(data.opening || 0)} />
+                <SRow label="মোট আয়" value={fmtBDT(totalIncome)} />
+                <SRow label="মোট (ব্যালেন্স + আয়)" value={fmtBDT((data.opening || 0) + totalIncome)} bold />
                 <SRow label="মোট খরচ" value={fmtBDT(totalExpense)} bold />
                 <div className={`flex justify-between mt-3 pt-3 border-t-2 border-gray-200 text-2xl font-bold ${balance >= 0 ? "text-green-700" : "text-red-600"}`}>
                   <span>বালেন্স</span><span>{fmtBDT(balance)}</span>
@@ -311,49 +382,63 @@ export default function Home() {
         )}
       </div>
 
-      {/* Income edit modal */}
-      {showIncomeModal && data && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowIncomeModal(false)}>
+      {/* Add income modal */}
+      {showAddIncome && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16" onClick={() => { setShowAddIncome(false); setNewIncomeName(""); setNewIncomeAmount(""); setShowIncomeSug(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Wallet size={20} className="text-blue-600" />আয় সম্পাদনা</h3>
+            <h3 className="text-xl font-bold mb-4">নতুন আয় যোগ করুন</h3>
             <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-base text-gray-500">ওপেনিং বালেন্স</label>
-                <button
-                  type="button"
-                  onClick={() => setEditOpening(String(computeOpening(activeKey!, allMonths)))}
-                  className="text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100">
-                  আগের মাস থেকে আনুন
-                </button>
-              </div>
-              <input type="text" inputMode="numeric" value={editOpening}
-                onChange={(e) => setEditOpening(e.target.value)}
-                placeholder="০"
-                className="w-full text-xl px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+              <label className="text-base text-gray-500 block mb-1">আয়ের নাম</label>
+              <input
+                type="text"
+                value={newIncomeName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewIncomeName(val);
+                  const f = (val.length > 0
+                    ? incomeSuggestions.filter((s) => s.includes(val))
+                    : incomeSuggestions);
+                  setIncomeSugFiltered(f);
+                  setShowIncomeSug(f.length > 0);
+                }}
+                onFocus={() => {
+                  setIncomeSugFiltered(incomeSuggestions);
+                  setShowIncomeSug(true);
+                }}
+                placeholder="যেমন: ভাড়া"
+                className="w-full text-xl px-4 py-3 rounded-xl border border-gray-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-green-300"
+              />
+              {showIncomeSug && (
+                <ul className="border border-gray-200 rounded-xl mt-1 overflow-y-auto">
+                  {incomeSugFiltered.map((s) => (
+                    <li key={s} onMouseDown={() => { setNewIncomeName(s); setShowIncomeSug(false); }}
+                      className="px-4 py-3 text-xl cursor-pointer hover:bg-green-50 hover:text-green-700">
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="mb-5">
-              <label className="text-base text-gray-500 block mb-1">ভাড়া</label>
-              <input type="text" inputMode="numeric" value={editRental}
-                onChange={(e) => setEditRental(e.target.value)}
+              <label className="text-base text-gray-500 block mb-1">টাকার পরিমাণ</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={newIncomeAmount}
+                onChange={(e) => setNewIncomeAmount(e.target.value)}
                 placeholder="০"
-                className="w-full text-xl px-4 py-3 rounded-xl border border-gray-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                className="w-full text-xl px-4 py-3 rounded-xl border border-gray-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-green-300"
+              />
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowIncomeModal(false)}
+              <button onClick={() => { setShowAddIncome(false); setNewIncomeName(""); setNewIncomeAmount(""); }}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50">
                 বাতিল
               </button>
-              <button onClick={async () => {
-                const updated = { ...data, opening: parseAmount(editOpening), rental: parseAmount(editRental) };
-                setData(updated);
-                setShowIncomeModal(false);
-                try {
-                  await upsertMonth(updated);
-                  showToast("আয় সংরক্ষণ হয়েছে");
-                } catch { showToast("সংরক্ষণ হয়নি"); }
-              }}
-                className="px-5 py-3 rounded-xl bg-blue-600 text-white text-lg font-bold hover:bg-blue-700">
-                সংরক্ষণ
+              <button onClick={addIncome}
+                disabled={!newIncomeName.trim() || parseAmount(newIncomeAmount) <= 0}
+                className="px-5 py-3 rounded-xl bg-green-600 text-white text-lg font-bold hover:bg-green-700 disabled:opacity-40">
+                যোগ করুন
               </button>
             </div>
           </div>
@@ -362,7 +447,7 @@ export default function Home() {
 
       {/* Add expense modal */}
       {showAddExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowAddExpense(false); setNewExpenseName(""); setNewExpenseAmount(""); setShowAddSug(false); }}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16" onClick={() => { setShowAddExpense(false); setNewExpenseName(""); setNewExpenseAmount(""); setShowAddSug(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">নতুন খরচ যোগ করুন</h3>
 
