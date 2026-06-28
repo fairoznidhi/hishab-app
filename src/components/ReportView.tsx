@@ -23,8 +23,8 @@ export default function ReportView({ data, onBack }: { data: MonthData; onBack: 
     el.style.width = prev;
 
     const link = document.createElement("a");
-    link.download = `hishab-${data.year}-${data.month}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = `hishab-${data.year}-${data.month}.jpg`;
+    link.href = canvas.toDataURL("image/jpeg", 0.95);
     link.click();
   }
 
