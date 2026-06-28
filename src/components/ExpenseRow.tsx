@@ -74,7 +74,7 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
 
       {/* Edit modal */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16" onClick={() => setShowEdit(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowEdit(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">খরচ সম্পাদনা</h3>
 

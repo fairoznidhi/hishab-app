@@ -39,12 +39,6 @@ export default function Home() {
 
   useEffect(() => { init(); }, []);
 
-  const anyModalOpen = showAddExpense || showAddIncome;
-  useEffect(() => {
-    document.body.style.overflow = anyModalOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [anyModalOpen]);
-
   async function init() {
     try {
       const [months, sugs] = await Promise.all([getAllMonths(), getSuggestions()]);
@@ -384,7 +378,7 @@ export default function Home() {
 
       {/* Add income modal */}
       {showAddIncome && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16" onClick={() => { setShowAddIncome(false); setNewIncomeName(""); setNewIncomeAmount(""); setShowIncomeSug(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowAddIncome(false); setNewIncomeName(""); setNewIncomeAmount(""); setShowIncomeSug(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">নতুন আয় যোগ করুন</h3>
             <div className="mb-3">
@@ -447,7 +441,7 @@ export default function Home() {
 
       {/* Add expense modal */}
       {showAddExpense && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16" onClick={() => { setShowAddExpense(false); setNewExpenseName(""); setNewExpenseAmount(""); setShowAddSug(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowAddExpense(false); setNewExpenseName(""); setNewExpenseAmount(""); setShowAddSug(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">নতুন খরচ যোগ করুন</h3>
 
