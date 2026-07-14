@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "মাসিক হিসাব",
+  title: "হিসাব খাতা",
   description: "মাসিক আয় ও খরচের হিসাব",
 };
 

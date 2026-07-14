@@ -51,20 +51,22 @@ export default function ReportView({
   }
 
   return (
-    <div className="pb-12">
-      <div>
-        <button
-          onClick={() => window.history.back()}
-          className="fixed bottom-6 left-6 z-40 flex items-center gap-2 text-lg px-5 py-4 rounded-full border border-gray-300 bg-white shadow-xl hover:bg-gray-50"
-        >
-          <ArrowLeft size={20} /> ফিরে যান
-        </button>
-        <button
-          onClick={handleDownload}
-          className="fixed bottom-6 right-6 z-40 flex items-center justify-center gap-2 text-lg px-5 py-4 rounded-full bg-blue-600 text-white font-bold shadow-xl hover:bg-blue-700"
-        >
-          <Download size={20} /> ডাউনলোড
-        </button>
+    <div className="pb-8">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200">
+        <div className="max-w-2xl mx-auto flex items-stretch">
+          <button
+            onClick={() => window.history.back()}
+            className="flex-1 py-6 bg-white text-gray-700 font-bold hover:bg-gray-50 flex items-center justify-center gap-1.5"
+          >
+            <ArrowLeft size={20} /> ফিরে যান
+          </button>
+          <button
+            onClick={handleDownload}
+            className="flex-1 py-6 bg-blue-600 text-white font-bold hover:bg-blue-700 flex items-center justify-center gap-1.5"
+          >
+            <Download size={20} /> ডাউনলোড
+          </button>
+        </div>
       </div>
 
       <div

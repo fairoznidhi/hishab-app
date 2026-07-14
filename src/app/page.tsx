@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
-  BookOpen,
   ShoppingCart,
   Plus,
   Minus,
@@ -387,18 +387,29 @@ export default function Home() {
     allMonths.some((m) => m.month === month && m.year === activeYear);
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20">
+    <div className="min-h-screen bg-stone-150 pb-20">
       {/* Header */}
       {!showReport && (
         <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 py-4 px-4">
           <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <BookOpen className="text-blue-700" size={26} strokeWidth={2} />
-              <h1 className="text-2xl font-bold text-blue-700">হিসাব খাতা</h1>
+            <div className="flex items-end gap-2">
+              <Image
+                src="/logo.svg"
+                alt="হিসাব খাতা"
+                width={36}
+                height={36}
+                className="w-9 h-9 shrink-0 block"
+              />
+              <h1 className="text-2xl font-extrabold tracking-tight text-blue-700 leading-none">
+                হিসাব খাতা
+              </h1>
             </div>
             {activePerson && (
               <button
-                onClick={() => setShowSelector((v) => !v)}
+                onClick={() => {
+                  setShowSelector((v) => !v);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className="text-right leading-tight"
               >
                 <div className="text-sm font-bold text-gray-800">
@@ -631,21 +642,21 @@ export default function Home() {
                 <div className="max-w-2xl mx-auto flex items-stretch">
                   <button
                     onClick={() => setShowAddIncome(true)}
-                    className="flex-1 py-4 bg-green-600 text-white font-bold hover:bg-green-700 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-6 bg-green-600 text-white font-bold hover:bg-green-700 flex items-center justify-center gap-1.5"
                   >
                     <Plus size={20} />
                     আয়
                   </button>
                   <button
                     onClick={() => setShowAddExpense(true)}
-                    className="flex-1 py-4 bg-red-600 text-white font-bold hover:bg-red-700 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-6 bg-red-600 text-white font-bold hover:bg-red-700 flex items-center justify-center gap-1.5"
                   >
                     <Minus size={20} />
                     খরচ
                   </button>
                   <button
                     onClick={() => setShowReport(true)}
-                    className="flex-1 text-sm py-4 bg-blue-600 text-white font-bold hover:bg-blue-700 flex items-center justify-center gap-1.5"
+                    className="flex-1 text-sm py-6 bg-blue-600 text-white font-bold hover:bg-blue-700 flex items-center justify-center gap-1.5"
                   >
                     <FileText size={16} />
                     রিপোর্ট
