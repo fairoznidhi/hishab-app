@@ -51,6 +51,13 @@ export default function Home() {
   const [activeYear, setActiveYear] = useState<string>(String(CUR_YEAR));
   const [data, setData] = useState<MonthData | null>(null);
   const [showReport, setShowReport] = useState(false);
+  function closeReport() {
+    if (window.history.state?.report === true) {
+      window.history.back();
+    } else {
+      setShowReport(false);
+    }
+  }
   const [showSelector, setShowSelector] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -118,7 +125,7 @@ export default function Home() {
     setActivePerson(p);
     setActiveKey(null);
     setData(null);
-    setShowReport(false);
+    closeReport();
     setShowSelector(true);
     setLoading(true);
     try {
@@ -172,7 +179,7 @@ export default function Home() {
     const key = makeKey(month, activeYear);
     setActiveMonth(month);
     setActiveKey(key);
-    setShowReport(false);
+    closeReport();
     setData(null);
     setLoading(true);
     try {
@@ -201,7 +208,7 @@ export default function Home() {
     setActiveYear(year);
     const key = makeKey(activeMonth, year);
     setActiveKey(key);
-    setShowReport(false);
+    closeReport();
     setData(null);
     setLoading(true);
     try {
@@ -248,7 +255,7 @@ export default function Home() {
       setAllMonths(updated);
       setData(newMonth);
       setActiveKey(key);
-      setShowReport(false);
+      closeReport();
       setShowSelector(false);
     } catch {
       showToast("তৈরি হয়নি, আবার চেষ্টা করুন");
@@ -581,7 +588,7 @@ export default function Home() {
         {!loading &&
           data &&
           (showReport ? (
-            <ReportView data={data} onBack={() => setShowReport(false)} />
+            <ReportView data={data} onBack={closeReport} />
           ) : (
             <>
               {/* Previous balance */}

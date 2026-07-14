@@ -14,7 +14,9 @@ export default function ReportView({
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    window.history.pushState({ report: true }, "");
+    if (window.history.state?.report !== true) {
+      window.history.pushState({ report: true }, "");
+    }
     const handlePopState = () => onBack();
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -71,7 +73,7 @@ export default function ReportView({
 
       <div
         ref={printRef}
-        className="bg-white border border-gray-200 rounded-2xl p-6 max-w-md mx-auto"
+        className="bg-white border border-gray-200 rounded-2xl p-6 max-w-md mx-auto pb-10"
       >
         <h2 className="text-2xl font-bold text-center">
           {data.month} {data.year}
