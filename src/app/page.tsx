@@ -439,7 +439,7 @@ export default function Home() {
 
               {/* Actions */}
               <button onClick={() => setShowReport(true)}
-                className="w-full text-xl py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 flex items-center justify-center gap-2">
+                className="fixed bottom-6 right-6 z-40 text-lg px-5 py-4 rounded-full bg-blue-600 text-white font-bold shadow-xl hover:bg-blue-700 flex items-center gap-2">
                 <FileText size={20} />রিপোর্ট দেখুন
               </button>
             </>
