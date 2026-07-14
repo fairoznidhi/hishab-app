@@ -19,6 +19,8 @@ import {
   upsertMonth,
   getSuggestions,
   addSuggestions,
+  getIncomeSuggestions,
+  addIncomeSuggestions,
   getPeople,
   addPerson,
   PERSON_COLORS,
@@ -62,7 +64,7 @@ export default function Home() {
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [newIncomeName, setNewIncomeName] = useState("");
   const [newIncomeAmount, setNewIncomeAmount] = useState("");
-  const [incomeSuggestions] = useState(["ভাড়া"]);
+  const [incomeSuggestions, setIncomeSuggestions] = useState<string[]>([]);
   const [incomeSugFiltered, setIncomeSugFiltered] = useState<string[]>([]);
   const [showIncomeSug, setShowIncomeSug] = useState(false);
 
@@ -92,9 +94,20 @@ export default function Home() {
 
   async function init() {
     try {
-      const [ppl, sugs] = await Promise.all([getPeople(), getSuggestions()]);
-      setPeople(ppl);
+      const [ppl, sugs, incomeSugs] = await Promise.all([
+        getPeople(),
+        getSuggestions(),
+        getIncomeSuggestions(),
+      ]);
+      setPeople(
+        process.env.NODE_ENV === "development"
+          ? ppl
+          : ppl.filter((p) => p.name.trim().toLowerCase() !== "test"),
+      );
       setSuggestions([...sugs].sort((a, b) => a.localeCompare(b, "bn")));
+      setIncomeSuggestions(
+        [...incomeSugs].sort((a, b) => a.localeCompare(b, "bn")),
+      );
       setDbReady(true);
     } catch {
       setDbReady(false);
@@ -126,8 +139,8 @@ export default function Home() {
     try {
       const p = await addPerson(name, color);
       setPeople([...people, p]);
-      setShowAddPerson(false);
       setNewPersonName("");
+      window.history.back();
       await selectPerson(p);
     } catch {
       showToast("যোগ হয়নি, আবার চেষ্টা করুন");
@@ -282,9 +295,9 @@ export default function Home() {
       ],
     };
     setData(updated);
-    setShowAddExpense(false);
     setNewExpenseName("");
     setNewExpenseAmount("");
+    window.history.back();
     try {
       await upsertMonth(updated);
       await addSuggestions([name]);
@@ -330,11 +343,14 @@ export default function Home() {
       ],
     };
     setData(updated);
-    setShowAddIncome(false);
     setNewIncomeName("");
     setNewIncomeAmount("");
+    window.history.back();
     try {
       await upsertMonth(updated);
+      await addIncomeSuggestions([name]);
+      const sugs = await getIncomeSuggestions();
+      setIncomeSuggestions([...sugs].sort((a, b) => a.localeCompare(b, "bn")));
       showToast("আয় যোগ হয়েছে");
     } catch {
       showToast("সংরক্ষণ হয়নি");
@@ -672,10 +688,7 @@ export default function Home() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
           onClick={() => {
-            if (!addingPerson) {
-              setShowAddPerson(false);
-              setNewPersonName("");
-            }
+            if (!addingPerson) window.history.back();
           }}
         >
           <div
@@ -696,10 +709,7 @@ export default function Home() {
             </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => {
-                  setShowAddPerson(false);
-                  setNewPersonName("");
-                }}
+                onClick={() => window.history.back()}
                 disabled={addingPerson}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
               >
@@ -721,19 +731,20 @@ export default function Home() {
       {/* Add income modal */}
       {showAddIncome && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => {
-            setShowAddIncome(false);
-            setNewIncomeName("");
-            setNewIncomeAmount("");
-            setShowIncomeSug(false);
-          }}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40 px-4"
+          onClick={() => window.history.back()}
         >
           <div
             className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-4">নতুন আয় যোগ করুন</h3>
+            <div className="mb-4">
+              <h3 className="text-xl font-bold">নতুন আয় যোগ করুন</h3>
+              <span className="text-sm text-gray-400">{activePerson?.name}</span>{" "}
+              <span className="text-xs text-gray-400">
+                · {activeMonth} {activeYear}
+              </span>
+            </div>
             <div className="mb-3">
               <label className="text-base text-gray-500 block mb-1">
                 আয়ের নাম
@@ -790,11 +801,7 @@ export default function Home() {
             </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => {
-                  setShowAddIncome(false);
-                  setNewIncomeName("");
-                  setNewIncomeAmount("");
-                }}
+                onClick={() => window.history.back()}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50"
               >
                 বাতিল
@@ -816,19 +823,20 @@ export default function Home() {
       {/* Add expense modal */}
       {showAddExpense && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => {
-            setShowAddExpense(false);
-            setNewExpenseName("");
-            setNewExpenseAmount("");
-            setShowAddSug(false);
-          }}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40 px-4"
+          onClick={() => window.history.back()}
         >
           <div
             className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-4">নতুন খরচ যোগ করুন</h3>
+            <div className="mb-4">
+              <h3 className="text-xl font-bold">নতুন খরচ যোগ করুন</h3>
+              <span className="text-sm text-gray-400">{activePerson?.name}</span>{" "}
+              <span className="text-xs text-gray-400">
+                · {activeMonth} {activeYear}
+              </span>
+            </div>
 
             <div className="mb-3">
               <label className="text-base text-gray-500 block mb-1">
@@ -905,12 +913,7 @@ export default function Home() {
 
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => {
-                  setShowAddExpense(false);
-                  setNewExpenseName("");
-                  setNewExpenseAmount("");
-                  setShowAddSug(false);
-                }}
+                onClick={() => window.history.back()}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50"
               >
                 বাতিল

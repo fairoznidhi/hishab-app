@@ -151,3 +151,19 @@ export async function addSuggestions(names: string[]): Promise<void> {
   const { error } = await supabase.from("suggestions").upsert(rows, { onConflict: "name", ignoreDuplicates: true });
   if (error) throw error;
 }
+
+export async function getIncomeSuggestions(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("income_suggestions")
+    .select("name")
+    .order("name");
+  if (error) throw error;
+  return data ? data.map((r: { name: string }) => r.name) : [];
+}
+
+export async function addIncomeSuggestions(names: string[]): Promise<void> {
+  const rows = names.filter(Boolean).map((name) => ({ name }));
+  if (rows.length === 0) return;
+  const { error } = await supabase.from("income_suggestions").upsert(rows, { onConflict: "name", ignoreDuplicates: true });
+  if (error) throw error;
+}

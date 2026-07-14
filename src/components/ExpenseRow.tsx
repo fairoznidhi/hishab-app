@@ -65,7 +65,7 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
 
   function saveEdit() {
     onSave(index, editName.trim(), parseAmount(editAmount));
-    setShowEdit(false);
+    window.history.back();
   }
 
   const canSave = editName.trim() !== "" && parseAmount(editAmount) > 0;
@@ -99,7 +99,7 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
 
       {/* Edit modal */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowEdit(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => window.history.back()}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">খরচ সম্পাদনা</h3>
 
@@ -140,7 +140,7 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
             </div>
 
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowEdit(false)}
+              <button onClick={() => window.history.back()}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50">
                 বাতিল
               </button>
@@ -155,18 +155,18 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setConfirmDelete(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => window.history.back()}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-2">খরচ মুছবেন?</h3>
             <p className="text-gray-500 mb-6">
               <strong>{expense.name || `খরচ ${index + 1}`}</strong> মুছে ফেলা হবে।
             </p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)}
+              <button onClick={() => window.history.back()}
                 className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50">
                 বাতিল
               </button>
-              <button onClick={() => { setConfirmDelete(false); onRemove(index); }}
+              <button onClick={() => { onRemove(index); window.history.back(); }}
                 className="px-5 py-3 rounded-xl bg-red-500 text-white text-lg font-bold hover:bg-red-600">
                 মুছুন
               </button>
