@@ -30,6 +30,19 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!showEdit && !confirmDelete) return;
+    window.history.pushState({ modal: true }, "");
+    const handlePopState = () => {
+      setShowEdit(false);
+      setConfirmDelete(false);
+      setShowSug(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showEdit, confirmDelete]);
+
   function openEdit() {
     setEditName(expense.name);
     setEditAmount(String(expense.amount || ""));
