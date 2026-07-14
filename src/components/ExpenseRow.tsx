@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, MoreVertical } from "lucide-react";
 import { Expense, parseAmount } from "@/lib/supabase";
 
 interface Props {
@@ -15,16 +15,20 @@ interface Props {
 export default function ExpenseRow({ expense, index, suggestions, onChange, onSave, onRemove }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [editName, setEditName] = useState(expense.name);
   const [editAmount, setEditAmount] = useState(String(expense.amount || ""));
   const [filtered, setFiltered] = useState<string[]>([]);
   const [showSug, setShowSug] = useState(false);
   const sugRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (sugRef.current && !sugRef.current.contains(e.target as Node))
         setShowSug(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setShowMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -69,19 +73,27 @@ export default function ExpenseRow({ expense, index, suggestions, onChange, onSa
   return (
     <>
       {/* Display row */}
-      <div className="flex items-center gap-2 py-2 px-3 mb-2 bg-white border border-gray-100 rounded-xl">
-        <span className="text-sm text-gray-400 w-6 shrink-0">{index + 1}.</span>
+      <div className="flex items-center gap-2 py-2.5 border-b border-gray-100 last:border-b-0">
+        <span className="text-sm text-gray-400 w-4 shrink-0">{index + 1}.</span>
         <span className="flex-1 text-base text-gray-800 truncate">{expense.name || "—"}</span>
         <span className="text-base font-semibold text-blue-700 shrink-0">৳{expense.amount ? expense.amount.toLocaleString("bn-BD") : "০"}</span>
-        <div className="flex gap-1 shrink-0">
-          <button onClick={openEdit}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-            <Pencil size={13} />
+        <div className="relative shrink-0 -ml-1" ref={menuRef}>
+          <button onClick={() => setShowMenu((v) => !v)}
+            className="w-6 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+            <MoreVertical size={16} />
           </button>
-          <button onClick={() => setConfirmDelete(true)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">
-            <Trash2 size={13} />
-          </button>
+          {showMenu && (
+            <div className="absolute right-0 top-8 z-10 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32">
+              <button onClick={() => { setShowMenu(false); openEdit(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <Pencil size={14} className="text-blue-600" /> সম্পাদনা
+              </button>
+              <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <Trash2 size={14} className="text-red-500" /> মুছুন
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

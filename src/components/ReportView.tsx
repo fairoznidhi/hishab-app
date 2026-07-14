@@ -101,7 +101,7 @@ export default function ReportView({
         <div
           className={`flex justify-between mt-4 pt-4 border-t-2 border-gray-300 text-2xl font-bold ${balance >= 0 ? "text-green-700" : "text-red-600"}`}
         >
-          <span>বালেন্স</span>
+          <span>ব্যালেন্স</span>
           <span>{fmtBDT(balance)}</span>
         </div>
       </div>
