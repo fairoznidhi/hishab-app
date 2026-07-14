@@ -45,6 +45,26 @@ export default function Home() {
 
   useEffect(() => { init(); }, []);
 
+  useEffect(() => {
+    if (!showAddPerson && !showAddIncome && !showAddExpense) return;
+    window.history.pushState({ modal: true }, "");
+    const handlePopState = () => {
+      setShowAddPerson(false);
+      setNewPersonName("");
+      setShowAddIncome(false);
+      setNewIncomeName("");
+      setNewIncomeAmount("");
+      setShowAddExpense(false);
+      setNewExpenseName("");
+      setNewExpenseAmount("");
+      setShowAddSug(false);
+      setShowIncomeSug(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAddPerson, showAddIncome, showAddExpense]);
+
   async function init() {
     try {
       const [ppl, sugs] = await Promise.all([getPeople(), getSuggestions()]);
