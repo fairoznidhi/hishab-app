@@ -25,3 +25,28 @@ alter table suggestions enable row level security;
 
 create policy "allow all months" on months for all using (true) with check (true);
 create policy "allow all suggestions" on suggestions for all using (true) with check (true);
+
+-- ============================================================
+-- Multi-person support — run this block ONCE to upgrade an
+-- existing database created with the setup above.
+-- ============================================================
+
+-- Table 3: stores each person (personnel selector)
+create table if not exists people (
+  id         bigserial primary key,
+  name       text not null,
+  color      text,
+  created_at timestamptz default now()
+);
+
+alter table people enable row level security;
+create policy "allow all people" on people for all using (true) with check (true);
+
+-- Scope months to a person. Existing rows (if any) are left with a
+-- null person_id — either delete them or manually assign a person_id
+-- before making the column not null.
+alter table months add column if not exists person_id bigint references people(id);
+
+-- Replace the global-unique key with a per-person-unique key.
+alter table months drop constraint if exists months_key_key;
+alter table months add constraint months_person_key_unique unique (person_id, key);

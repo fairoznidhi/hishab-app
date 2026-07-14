@@ -18,14 +18,19 @@ export interface Income {
 
 export interface MonthData {
   id?: number;
+  person_id: number;
   key: string;       // e.g. "2026_জুন"
   month: string;
   year: string;
   opening: number;
-  rental: number;
-  other_income: number;
   incomes: Income[];
   expenses: Expense[];
+}
+
+export interface Person {
+  id: number;
+  name: string;
+  color: string;
 }
 
 // ---------- Helpers ----------
@@ -59,22 +64,48 @@ export function parseAmount(val: string): number {
   return parseFloat(normalized) || 0;
 }
 
+export const PERSON_COLORS = [
+  "bg-gray-500", "bg-gray-500", "bg-gray-500",
+  "bg-gray-500", "bg-gray-500", "bg-gray-500",
+];
+
 // ---------- DB functions (called directly from React, no backend) ----------
 
-export async function getAllMonths(): Promise<MonthData[]> {
+export async function getPeople(): Promise<Person[]> {
+  const { data, error } = await supabase
+    .from("people")
+    .select("*")
+    .order("id", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addPerson(name: string, color: string): Promise<Person> {
+  const { data, error } = await supabase
+    .from("people")
+    .insert({ name, color })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getAllMonths(personId: number): Promise<MonthData[]> {
   const { data, error } = await supabase
     .from("months")
     .select("*")
+    .eq("person_id", personId)
     .order("key", { ascending: true });
   if (error) throw error;
   return data || [];
 }
 
-export async function getMonth(key: string): Promise<MonthData | null> {
+export async function getMonth(key: string, personId: number): Promise<MonthData | null> {
   const { data, error } = await supabase
     .from("months")
     .select("*")
     .eq("key", key)
+    .eq("person_id", personId)
     .single();
   if (error && error.code !== "PGRST116") throw error;
   return data || null;
@@ -82,12 +113,11 @@ export async function getMonth(key: string): Promise<MonthData | null> {
 
 export async function upsertMonth(m: MonthData): Promise<void> {
   const payload = {
+    person_id: m.person_id,
     key: m.key,
     month: m.month,
     year: m.year,
     opening: m.opening,
-    rental: m.rental,
-    other_income: m.other_income,
     incomes: m.incomes,
     expenses: m.expenses,
   };
@@ -96,13 +126,13 @@ export async function upsertMonth(m: MonthData): Promise<void> {
     const { error } = await supabase.from("months").update(payload).eq("id", m.id);
     if (error) throw error;
   } else {
-    const { error } = await supabase.from("months").upsert(payload, { onConflict: "key" });
+    const { error } = await supabase.from("months").upsert(payload, { onConflict: "person_id,key" });
     if (error) throw error;
   }
 }
 
-export async function deleteMonthByKey(key: string): Promise<void> {
-  const { error } = await supabase.from("months").delete().eq("key", key);
+export async function deleteMonthByKey(key: string, personId: number): Promise<void> {
+  const { error } = await supabase.from("months").delete().eq("key", key).eq("person_id", personId);
   if (error) throw error;
 }
 

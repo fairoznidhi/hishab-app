@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react";
 import { BookOpen, ShoppingCart, Plus, FileText, Loader2, TrendingUp } from "lucide-react";
 import {
-  MonthData, Expense, Income,
+  MonthData, Expense, Income, Person,
   getAllMonths, getMonth, upsertMonth,
   getSuggestions, addSuggestions,
+  getPeople, addPerson, PERSON_COLORS,
   makeKey, fmtBDT, parseAmount, BANGLA_MONTHS, ENGLISH_MONTHS,
 } from "@/lib/supabase";
 import ExpenseRow from "@/components/ExpenseRow";
@@ -14,6 +15,11 @@ const CUR_YEAR = new Date().getFullYear();
 const YEARS = [CUR_YEAR - 1, CUR_YEAR, CUR_YEAR + 1].map(String);
 
 export default function Home() {
+  const [people, setPeople] = useState<Person[]>([]);
+  const [activePerson, setActivePerson] = useState<Person | null>(null);
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [newPersonName, setNewPersonName] = useState("");
+  const [addingPerson, setAddingPerson] = useState(false);
   const [allMonths, setAllMonths] = useState<MonthData[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -41,13 +47,42 @@ export default function Home() {
 
   async function init() {
     try {
-      const [months, sugs] = await Promise.all([getAllMonths(), getSuggestions()]);
-      setAllMonths(months);
+      const [ppl, sugs] = await Promise.all([getPeople(), getSuggestions()]);
+      setPeople(ppl);
       setSuggestions([...sugs].sort((a, b) => a.localeCompare(b, "bn")));
       setDbReady(true);
     } catch {
       setDbReady(false);
     }
+  }
+
+  async function selectPerson(p: Person) {
+    setActivePerson(p);
+    setActiveKey(null);
+    setData(null);
+    setShowReport(false);
+    setLoading(true);
+    try {
+      const months = await getAllMonths(p.id);
+      setAllMonths(months);
+    } catch { showToast("লোড হয়নি, আবার চেষ্টা করুন"); }
+    setLoading(false);
+  }
+
+  async function handleAddPerson() {
+    if (addingPerson) return;
+    const name = newPersonName.trim();
+    if (!name) return;
+    const color = PERSON_COLORS[people.length % PERSON_COLORS.length];
+    setAddingPerson(true);
+    try {
+      const p = await addPerson(name, color);
+      setPeople([...people, p]);
+      setShowAddPerson(false);
+      setNewPersonName("");
+      await selectPerson(p);
+    } catch { showToast("যোগ হয়নি, আবার চেষ্টা করুন"); }
+    setAddingPerson(false);
   }
 
   function computeOpening(key: string, months: MonthData[]): number | null {
@@ -65,6 +100,7 @@ export default function Home() {
   }
 
   async function selectMonth(month: string) {
+    if (!activePerson) return;
     const key = makeKey(month, activeYear);
     setActiveMonth(month);
     setActiveKey(key);
@@ -72,7 +108,7 @@ export default function Home() {
     setData(null);
     setLoading(true);
     try {
-      const [m, months] = await Promise.all([getMonth(key), getAllMonths()]);
+      const [m, months] = await Promise.all([getMonth(key, activePerson.id), getAllMonths(activePerson.id)]);
       setAllMonths(months);
       if (m) {
         const computed = computeOpening(key, months);
@@ -87,6 +123,7 @@ export default function Home() {
   }
 
   async function selectYear(year: string) {
+    if (!activePerson) return;
     setActiveYear(year);
     const key = makeKey(activeMonth, year);
     setActiveKey(key);
@@ -94,7 +131,7 @@ export default function Home() {
     setData(null);
     setLoading(true);
     try {
-      const [m, months] = await Promise.all([getMonth(key), getAllMonths()]);
+      const [m, months] = await Promise.all([getMonth(key, activePerson.id), getAllMonths(activePerson.id)]);
       setAllMonths(months);
       if (m) {
         const computed = computeOpening(key, months);
@@ -109,17 +146,19 @@ export default function Home() {
   }
 
   async function createMonth() {
+    if (!activePerson) return;
     const key = makeKey(activeMonth, activeYear);
     const newMonth: MonthData = {
+      person_id: activePerson.id,
       key, month: activeMonth, year: activeYear,
-      opening: 0, rental: 0, other_income: 0, incomes: [], expenses: [],
+      opening: 0, incomes: [], expenses: [],
     };
     const merged = [...allMonths, newMonth].sort((a, b) => a.key.localeCompare(b.key));
     const computed = computeOpening(key, merged);
     if (computed !== null) newMonth.opening = computed;
     try {
       await upsertMonth(newMonth);
-      const updated = await getAllMonths();
+      const updated = await getAllMonths(activePerson.id);
       setAllMonths(updated);
       setData(newMonth);
       setActiveKey(key);
@@ -148,7 +187,7 @@ export default function Home() {
   }
 
   async function addExpense() {
-    if (!data || !activeKey || !newExpenseName.trim()) return;
+    if (!data || !activeKey || !activePerson || !newExpenseName.trim()) return;
     const name = newExpenseName.trim();
     if (data.expenses.some((e) => e.name.trim() === name)) {
       showToast("এই নামে খরচ আগে থেকেই আছে");
@@ -162,7 +201,7 @@ export default function Home() {
     try {
       await upsertMonth(updated);
       await addSuggestions([name]);
-      const [months, sugs] = await Promise.all([getAllMonths(), getSuggestions()]);
+      const [months, sugs] = await Promise.all([getAllMonths(activePerson.id), getSuggestions()]);
       setAllMonths(months);
       setSuggestions([...sugs].sort((a, b) => a.localeCompare(b, "bn")));
       showToast("খরচ যোগ হয়েছে");
@@ -249,8 +288,40 @@ export default function Home() {
           </div>
         )}
 
-        {/* Navigation */}
+        {/* Personnel selector */}
         {!showReport && (
+          <div className="flex gap-4 mb-5 overflow-x-auto p-2 -m-2">
+            {people.map((p) => {
+              const isActive = activePerson?.id === p.id;
+              return (
+                <button key={p.id} onClick={() => selectPerson(p)} className="flex flex-col items-center gap-1 shrink-0">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white transition-all ${
+                    isActive ? "bg-blue-600 ring-4 ring-blue-200" : "bg-gray-400"
+                  }`}>
+                    {p.name.slice(0, 1)}
+                  </div>
+                  <span className={`text-sm ${isActive ? "text-blue-600 font-bold" : "text-gray-400"}`}>{p.name}</span>
+                </button>
+              );
+            })}
+            <button onClick={() => setShowAddPerson(true)} className="flex flex-col items-center gap-1 shrink-0">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-dashed border-gray-500 text-gray-400 hover:border-blue-400 hover:text-blue-400">
+                <Plus size={22} />
+              </div>
+              <span className="text-sm text-gray-400">নতুন</span>
+            </button>
+          </div>
+        )}
+
+        {/* No person selected */}
+        {!showReport && !activePerson && (
+          <div className="text-center text-xl text-gray-400 py-12">
+            উপরে ব্যক্তি বেছে নিন
+          </div>
+        )}
+
+        {/* Navigation */}
+        {!showReport && activePerson && (
           <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
             {/* Year selector */}
             <div className="flex gap-2 mb-3">
@@ -294,7 +365,7 @@ export default function Home() {
         {loading && <div className="flex justify-center items-center gap-2 py-10 text-gray-400 text-lg"><Loader2 className="animate-spin" size={24} /> লোড হচ্ছে...</div>}
 
         {/* No month selected */}
-        {!loading && !activeKey && (
+        {!loading && activePerson && !activeKey && (
           <div className="text-center text-xl text-gray-400 py-12">
             উপরে মাস বেছে নিন
           </div>
@@ -375,6 +446,39 @@ export default function Home() {
           )
         )}
       </div>
+
+      {/* Add person modal */}
+      {showAddPerson && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { if (!addingPerson) { setShowAddPerson(false); setNewPersonName(""); } }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">নতুন ব্যক্তি যোগ করুন</h3>
+            <div className="mb-5">
+              <label className="text-base text-gray-500 block mb-1">নাম</label>
+              <input
+                type="text"
+                value={newPersonName}
+                onChange={(e) => setNewPersonName(e.target.value)}
+                placeholder="যেমন: রাহাত"
+                disabled={addingPerson}
+                className="w-full text-xl px-4 py-3 rounded-xl border border-gray-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-60"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { setShowAddPerson(false); setNewPersonName(""); }}
+                disabled={addingPerson}
+                className="px-5 py-3 rounded-xl border border-gray-200 text-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+                বাতিল
+              </button>
+              <button onClick={handleAddPerson}
+                disabled={!newPersonName.trim() || addingPerson}
+                className="px-5 py-3 rounded-xl bg-blue-600 text-white text-lg font-bold hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2">
+                {addingPerson && <Loader2 size={18} className="animate-spin" />}
+                যোগ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add income modal */}
       {showAddIncome && (
