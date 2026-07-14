@@ -14,6 +14,11 @@ export default function ReportView({
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    window.history.pushState({ report: true }, "");
+    const handlePopState = () => onBack();
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalIncome = (data.incomes || []).reduce(
@@ -49,7 +54,7 @@ export default function ReportView({
     <div className="pb-12">
       <div>
         <button
-          onClick={onBack}
+          onClick={() => window.history.back()}
           className="fixed bottom-6 left-6 z-40 flex items-center gap-2 text-lg px-5 py-4 rounded-full border border-gray-300 bg-white shadow-xl hover:bg-gray-50"
         >
           <ArrowLeft size={20} /> ফিরে যান
